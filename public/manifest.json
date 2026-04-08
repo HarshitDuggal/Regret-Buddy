@@ -1,0 +1,32 @@
+{
+  "name": "Regret Buddy",
+  "short_name": "Regret",
+  "description": "Guilt-powered productivity. Avoid future regret by completing today's tasks.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#131314",
+  "theme_color": "#131314",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/devil.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Task",
+      "short_name": "Add",
+      "url": "/?action=add",
+      "icons": [
+        {
+          "src": "/devil.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

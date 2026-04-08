@@ -1,65 +1,178 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useTaskStore } from "@/store/taskStore";
+import TaskCard from "@/components/TaskCard";
+import AddTaskModal from "@/components/AddTaskModal";
+import DailySummary from "@/components/DailySummary";
+import ProgressRing from "@/components/ProgressRing";
+import StreakBadge from "@/components/StreakBadge";
+import useReminderEngine from "@/hooks/useReminderEngine";
+import { requestPermission } from "@/lib/notifications";
+import { getDailyQuote } from "@/lib/rageMessages";
+import { groupTasksByStatus } from "@/lib/businessLogic";
 
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+  const { tasks, streak, completionPercent, isLoading, initialize } =
+    useTaskStore();
+  const [showAdd, setShowAdd] = useState(false);
+
+  useReminderEngine();
+
+  useEffect(() => {
+    initialize();
+    requestPermission();
+  }, [initialize]);
+
+  if (isLoading) {
+    return (
+      <main style={{ padding: "var(--space-md)", maxWidth: 640, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60dvh" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12, animation: "pulseScale 1.5s ease-in-out infinite" }}>
+              😈
+            </div>
+            <p style={{ color: "var(--color-text-muted)" }}>Loading your obligations...</p>
+          </div>
         </div>
       </main>
-    </div>
+    );
+  }
+
+  const grouped = groupTasksByStatus(tasks);
+  const quote = getDailyQuote();
+
+  return (
+    <main style={{ padding: "var(--space-md)", maxWidth: 640, margin: "0 auto" }}>
+      {/* Header */}
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 20,
+          paddingTop: "var(--space-sm)",
+        }}
+      >
+        <div>
+          <h1 style={{ margin: "0 0 4px", fontSize: 28 }}>Regret Buddy</h1>
+          <p
+            style={{
+              color: "var(--color-danger)",
+              fontStyle: "italic",
+              fontSize: 13,
+              margin: 0,
+              maxWidth: 200,
+            }}
+          >
+            {quote}
+          </p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <StreakBadge count={streak} />
+          <ProgressRing percent={completionPercent} size={64} strokeWidth={5} />
+        </div>
+      </header>
+
+      {/* Daily summary bar */}
+      <div style={{ marginBottom: 16 }}>
+        <DailySummary tasks={tasks} />
+      </div>
+
+      {/* Task sections */}
+      {tasks.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">📭</div>
+          <h2 style={{ color: "var(--color-text-muted)", margin: 0 }}>No tasks yet</h2>
+          <p style={{ color: "var(--color-text-subtle)", fontSize: 14, margin: 0 }}>
+            Future you is disappointed already.
+          </p>
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)} style={{ marginTop: 8 }}>
+            + Add Your First Task
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Overdue section */}
+          {grouped.overdue.length > 0 && (
+            <section>
+              <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "var(--color-danger)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                ⚠️ Overdue ({grouped.overdue.length})
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {grouped.overdue.map((t) => (
+                  <TaskCard key={t.id} task={t} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Active section */}
+          {grouped.active.length > 0 && (
+            <section>
+              <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "var(--color-warning)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                🟡 In Progress ({grouped.active.length})
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {grouped.active.map((t) => (
+                  <TaskCard key={t.id} task={t} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Pending section */}
+          {grouped.pending.length > 0 && (
+            <section>
+              <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Upcoming ({grouped.pending.length})
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {grouped.pending.map((t) => (
+                  <TaskCard key={t.id} task={t} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Completed section */}
+          {grouped.done.length > 0 && (
+            <section>
+              <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "var(--color-success)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                ✅ Done ({grouped.done.length})
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {grouped.done.map((t) => (
+                  <TaskCard key={t.id} task={t} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Skipped section */}
+          {grouped.skipped.length > 0 && (
+            <section>
+              <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "var(--color-text-subtle)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                💀 Skipped ({grouped.skipped.length})
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {grouped.skipped.map((t) => (
+                  <TaskCard key={t.id} task={t} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* FAB */}
+      <button className="fab" onClick={() => setShowAdd(true)} id="add-task-fab" aria-label="Add task">
+        +
+      </button>
+
+      {/* Add task modal */}
+      {showAdd && <AddTaskModal close={() => setShowAdd(false)} />}
+    </main>
   );
 }
