@@ -119,7 +119,6 @@ export const useTaskStore = create<AppState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-},
 
   // ── Load tasks for a specific day ──
   loadDay: async (dayKey?: string) => {
