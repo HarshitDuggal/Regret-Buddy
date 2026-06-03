@@ -20,7 +20,32 @@
     {
       "name": "Add Task",
       "short_name": "Add",
+      "description": "Quickly add a new task",
       "url": "/?action=add",
+      "icons": [
+        {
+          "src": "/devil.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "View Overdue",
+      "short_name": "Overdue",
+      "description": "See your overdue tasks",
+      "url": "/?action=overdue",
+      "icons": [
+        {
+          "src": "/devil.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Today's Tasks",
+      "short_name": "Today",
+      "description": "View today's task list",
+      "url": "/?action=today",
       "icons": [
         {
           "src": "/devil.png",

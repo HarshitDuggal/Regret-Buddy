@@ -1,9 +1,18 @@
 /**
  * Zustand store — Day-partitioned, with undo support and computed state.
  * Only loads current day's tasks to avoid scaling issues.
+ * Extended with Task Lists / Routines support.
  */
 import { create } from "zustand";
-import type { Task, DaySummary, UserPrefs, UndoEntry } from "@/types/task";
+import type {
+  Task,
+  DaySummary,
+  UserPrefs,
+  UndoEntry,
+  TaskList,
+  RoutineTask,
+  ActiveRoutineConfig,
+} from "@/types/task";
 import {
   addTask,
   getTasksByDay,
@@ -14,6 +23,15 @@ import {
   getPrefs,
   savePrefs,
   migrateV1Tasks,
+  getAllTaskLists,
+  saveTaskList,
+  deleteTaskListById,
+  getRoutineTasksByList,
+  saveRoutineTask,
+  deleteRoutineTaskById,
+  getActiveRoutineConfig,
+  saveActiveRoutineConfig,
+  batchUpdateTasks,
 } from "@/lib/db";
 import {
   getTodayKey,
@@ -21,8 +39,12 @@ import {
   computeCurrentStreak,
   sortTasks,
   computeCompletionPercent,
+  cloneRoutineTaskToTask,
+  filterRoutineTasksForDay,
+  getDayOfWeek,
 } from "@/lib/businessLogic";
 import { pickRageMessage } from "@/lib/rageMessages";
+import { registerServiceWorker } from "@/lib/notifications";
 
 type ToastType = "success" | "error" | "rage" | "info";
 
@@ -33,6 +55,10 @@ interface AppState {
   streak: number;
   prefs: UserPrefs;
   currentDayKey: string;
+
+  // ── Routines (Feature 3.4) ──
+  taskLists: TaskList[];
+  activeRoutine: ActiveRoutineConfig | null;
 
   // ── UI ──
   isLoading: boolean;
@@ -54,6 +80,18 @@ interface AppState {
   updatePrefs: (partial: Partial<UserPrefs>) => Promise<void>;
   showToast: (message: string, type: ToastType, undoId?: string) => void;
   clearToast: () => void;
+
+  // ── Routine Actions (Feature 3.4) ──
+  loadTaskLists: () => Promise<void>;
+  createTaskList: (list: TaskList) => Promise<void>;
+  updateTaskList: (list: TaskList) => Promise<void>;
+  removeTaskList: (id: string) => Promise<void>;
+  addRoutineTask: (task: RoutineTask) => Promise<void>;
+  removeRoutineTask: (id: string, taskListId: string) => Promise<void>;
+  fetchRoutineTasks: (taskListId: string) => Promise<RoutineTask[]>;
+  applyRoutine: (taskListId: string) => Promise<void>;
+  unapplyRoutine: () => Promise<void>;
+  autoApplyActiveRoutine: () => Promise<void>;
 }
 
 export const useTaskStore = create<AppState>((set, get) => ({
@@ -67,8 +105,12 @@ export const useTaskStore = create<AppState>((set, get) => ({
     reminderIntervalMin: 5,
     dailyResetHour: 4,
     theme: "dark",
+    hasSeenV2ReleaseNotes: false,
+    newsletterEmail: "",
   },
   currentDayKey: getTodayKey(),
+  taskLists: [],
+  activeRoutine: null,
   isLoading: true,
   toast: null,
   undoStack: [],
@@ -81,7 +123,10 @@ export const useTaskStore = create<AppState>((set, get) => ({
     if (!get().isLoading) return;
 
     try {
-      // Run v1 migration if needed
+      // Register service worker
+      registerServiceWorker();
+
+      // Run v1/v2 migration if needed
       await migrateV1Tasks();
 
       // Load prefs
@@ -103,16 +148,27 @@ export const useTaskStore = create<AppState>((set, get) => ({
       const allSummaries = await getAllDaySummaries();
       const streak = computeCurrentStreak(allSummaries);
 
+      // Load task lists
+      const taskLists = await getAllTaskLists();
+
+      // Load active routine config
+      const activeRoutine = await getActiveRoutineConfig();
+
       set({
         tasks: sorted,
         daySummary,
         streak,
         prefs,
         currentDayKey: dayKey,
+        taskLists,
+        activeRoutine,
         isLoading: false,
         completionPercent: computeCompletionPercent(sorted),
         dailySkipCount: sorted.filter((t) => t.skipped).length,
       });
+
+      // Auto-apply active routine if not yet applied today
+      await get().autoApplyActiveRoutine();
     } catch (err) {
       console.error("[RegretBuddy] Initialize failed:", err);
       // Still mark loading as done so the app renders (empty state)
@@ -324,7 +380,6 @@ export const useTaskStore = create<AppState>((set, get) => ({
       await savePrefs(merged);
     } catch (e) {
       console.error("[RegretBuddy] Could not save preferences to DB:", e);
-      // We could revert state here if DB strictly required, but for prefs it's fine.
     }
   },
 
@@ -342,4 +397,150 @@ export const useTaskStore = create<AppState>((set, get) => ({
   },
 
   clearToast: () => set({ toast: null }),
+
+  // ════════════════════════════════════════════
+  // Routine Actions (Feature 3.4)
+  // ════════════════════════════════════════════
+
+  loadTaskLists: async () => {
+    const taskLists = await getAllTaskLists();
+    set({ taskLists });
+  },
+
+  createTaskList: async (list) => {
+    await saveTaskList(list);
+    const taskLists = await getAllTaskLists();
+    set({ taskLists });
+    get().showToast(`Routine "${list.name}" created!`, "success");
+  },
+
+  updateTaskList: async (list) => {
+    await saveTaskList(list);
+    const taskLists = await getAllTaskLists();
+    set({ taskLists });
+  },
+
+  removeTaskList: async (id) => {
+    // If this is the active routine, unapply it first
+    const { activeRoutine } = get();
+    if (activeRoutine?.activeTaskListId === id) {
+      await get().unapplyRoutine();
+    }
+
+    await deleteTaskListById(id);
+    const taskLists = await getAllTaskLists();
+    set({ taskLists });
+    get().showToast("Routine deleted.", "info");
+  },
+
+  addRoutineTask: async (task) => {
+    await saveRoutineTask(task);
+  },
+
+  removeRoutineTask: async (id, _taskListId) => {
+    await deleteRoutineTaskById(id);
+  },
+
+  fetchRoutineTasks: async (taskListId) => {
+    return getRoutineTasksByList(taskListId);
+  },
+
+  // Apply a routine: clone its tasks for today (filtered by day of week)
+  applyRoutine: async (taskListId) => {
+    const { prefs, currentDayKey } = get();
+    const dayKey = currentDayKey || getTodayKey(prefs.dailyResetHour);
+    const today = getDayOfWeek();
+
+    // Get routine tasks and filter for today's day of week
+    const routineTasks = await getRoutineTasksByList(taskListId);
+    const todayTasks = filterRoutineTasksForDay(routineTasks, today);
+
+    if (todayTasks.length === 0) {
+      get().showToast("No tasks scheduled for today in this routine.", "info");
+    }
+
+    // Check which routine tasks have already been cloned today
+    const existingTasks = await getTasksByDay(dayKey);
+    const alreadyCloned = new Set(
+      existingTasks
+        .filter((t) => t.sourceRoutineTaskId)
+        .map((t) => t.sourceRoutineTaskId)
+    );
+
+    // Clone only tasks that haven't been cloned yet
+    const newTasks: Task[] = [];
+    for (const rt of todayTasks) {
+      if (!alreadyCloned.has(rt.id)) {
+        newTasks.push(cloneRoutineTaskToTask(rt, dayKey, taskListId));
+      }
+    }
+
+    if (newTasks.length > 0) {
+      await batchUpdateTasks(newTasks);
+    }
+
+    // Save active routine config
+    const config: ActiveRoutineConfig = {
+      id: "singleton",
+      activeTaskListId: taskListId,
+      appliedDayKey: dayKey,
+    };
+    await saveActiveRoutineConfig(config);
+
+    // Refresh
+    const tasks = await getTasksByDay(dayKey);
+    const sorted = sortTasks(tasks);
+    const daySummary = computeDaySummary(dayKey, sorted);
+    await saveDaySummary(daySummary);
+
+    // Get the list name for the toast
+    const lists = await getAllTaskLists();
+    const list = lists.find((l) => l.id === taskListId);
+
+    set({
+      tasks: sorted,
+      daySummary,
+      activeRoutine: config,
+      completionPercent: computeCompletionPercent(sorted),
+      dailySkipCount: sorted.filter((t) => t.skipped).length,
+    });
+
+    if (newTasks.length > 0) {
+      get().showToast(
+        `${list?.emoji || "📋"} "${list?.name}" applied — ${newTasks.length} tasks added!`,
+        "success"
+      );
+    } else {
+      get().showToast(
+        `${list?.emoji || "📋"} "${list?.name}" is now active (all tasks already added).`,
+        "info"
+      );
+    }
+  },
+
+  unapplyRoutine: async () => {
+    const config: ActiveRoutineConfig = {
+      id: "singleton",
+      activeTaskListId: null,
+      appliedDayKey: get().currentDayKey,
+    };
+    await saveActiveRoutineConfig(config);
+    set({ activeRoutine: config });
+    get().showToast("Routine deactivated. Back to General.", "info");
+  },
+
+  // Auto-apply the active routine if it hasn't been applied for today yet
+  autoApplyActiveRoutine: async () => {
+    const { activeRoutine, currentDayKey } = get();
+    if (
+      !activeRoutine ||
+      !activeRoutine.activeTaskListId ||
+      activeRoutine.appliedDayKey === currentDayKey
+    ) {
+      return; // No active routine, or already applied today
+    }
+
+    // Apply the routine for today
+    await get().applyRoutine(activeRoutine.activeTaskListId);
+  },
 }));

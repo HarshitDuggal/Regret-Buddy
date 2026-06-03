@@ -31,8 +31,17 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; emoji: string }[] = [
 
 const DURATION_PRESETS = [15, 30, 45, 60, 90, 120, 180, 240];
 
+const NOTIFY_BEFORE_OPTIONS = [
+  { value: 0, label: "Off" },
+  { value: 5, label: "5 min" },
+  { value: 10, label: "10 min" },
+  { value: 15, label: "15 min" },
+  { value: 30, label: "30 min" },
+  { value: 60, label: "1 hour" },
+];
+
 export default function AddTaskModal({ close }: { close: () => void }) {
-  const { createTask, prefs } = useTaskStore();
+  const { createTask, prefs, taskLists } = useTaskStore();
 
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
@@ -41,7 +50,11 @@ export default function AddTaskModal({ close }: { close: () => void }) {
   const [regret, setRegret] = useState("");
   const [growth, setGrowth] = useState<HelpingInGrowing>("technical");
   const [priority, setPriority] = useState<Priority>("medium");
+  const [notifyBefore, setNotifyBefore] = useState(0);
+  const [selectedListId, setSelectedListId] = useState("general");
   const [error, setError] = useState("");
+
+  const hasCustomLists = taskLists.filter((l) => !l.isDefault).length > 0;
 
   const isLastStep = step === STEPS.length - 1;
 
@@ -88,6 +101,9 @@ export default function AddTaskModal({ close }: { close: () => void }) {
       skipCategory: "other",
       helps_in_growing: growth,
       notifiedCount: 0,
+      notifyBeforeMin: notifyBefore,
+      preNotified: false,
+      taskListId: selectedListId,
     });
 
     close();
@@ -153,18 +169,59 @@ export default function AddTaskModal({ close }: { close: () => void }) {
                   ))}
                 </div>
               </div>
+
+              {/* Task List selector — only show if user has custom lists */}
+              {hasCustomLists && (
+                <div style={{ marginTop: 16 }}>
+                  <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
+                    Add to which list?
+                  </label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {taskLists.map((list) => (
+                      <button
+                        key={list.id}
+                        className={`chip ${selectedListId === list.id ? "active" : ""}`}
+                        onClick={() => setSelectedListId(list.id)}
+                      >
+                        <span>{list.emoji}</span>
+                        <span>{list.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
           {step === 1 && (
-            <input
-              type="time"
-              className="input"
-              value={startTime}
-              onChange={(e) => { setStartTime(e.target.value); setError(""); }}
-              autoFocus
-              id="start-time-input"
-            />
+            <>
+              <input
+                type="time"
+                className="input"
+                value={startTime}
+                onChange={(e) => { setStartTime(e.target.value); setError(""); }}
+                autoFocus
+                id="start-time-input"
+              />
+
+              {/* Notify Before — Feature 3.3 */}
+              <div style={{ marginTop: 16 }}>
+                <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
+                  🔔 Notify me before
+                </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {NOTIFY_BEFORE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      className={`chip ${notifyBefore === opt.value ? "active" : ""}`}
+                      onClick={() => setNotifyBefore(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           {step === 2 && (

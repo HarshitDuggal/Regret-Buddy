@@ -22,6 +22,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/devil.png",
+    shortcut: "/devil.png",
     apple: "/devil.png",
   },
 };
@@ -49,6 +50,8 @@ export default function RootLayout({
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
+        <link rel="icon" href="/devil.png" sizes="any" />
+        <link rel="shortcut icon" href="/devil.png" />
         <link rel="apple-touch-icon" href="/devil.png" />
       </head>
       <body>

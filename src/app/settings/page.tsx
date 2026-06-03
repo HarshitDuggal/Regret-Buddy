@@ -6,9 +6,19 @@ import { exportAllData, clearAllData } from "@/lib/db";
 import { requestPermission } from "@/lib/notifications";
 
 export default function SettingsPage() {
-  const { prefs, updatePrefs, initialize } = useTaskStore();
+  const { prefs, updatePrefs, initialize, showToast } = useTaskStore();
   const [confirmClear, setConfirmClear] = useState(false);
   const [exported, setExported] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (prefs.newsletterEmail) {
+      setEmailInput(prefs.newsletterEmail);
+    } else {
+      setEmailInput("");
+    }
+  }, [prefs.newsletterEmail]);
 
   useEffect(() => {
     initialize();
@@ -201,12 +211,127 @@ export default function SettingsPage() {
           )}
         </div>
 
+        {/* Newsletter Subscription Card */}
+        <div className="card">
+          <h3 style={{ margin: "0 0 16px", fontSize: 15 }}>📩 Newsletter</h3>
+          <p style={{ fontSize: 12, color: "var(--color-text-muted)", margin: "0 0 12px 0", lineHeight: "1.4" }}>
+            Join the weekly accountability letter for feature updates, tips, and direct reality checks.
+          </p>
+
+          {prefs.newsletterEmail ? (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <span style={{ fontSize: 14, color: "var(--color-text)" }}>
+                  Subscribed as: <strong style={{ color: "var(--color-success)" }}>{prefs.newsletterEmail}</strong>
+                </span>
+                <span style={{ fontSize: 12, color: "var(--color-success)" }}>✓ Active</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="email"
+                  className="input"
+                  value={emailInput}
+                  onChange={(e) => {
+                    setEmailInput(e.target.value);
+                    if (errorMsg) setErrorMsg("");
+                  }}
+                  style={{ flex: 1, minHeight: 40, padding: "8px 12px", fontSize: 14 }}
+                />
+                {emailInput !== prefs.newsletterEmail && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      const validateEmail = (emailStr: string) => /\S+@\S+\.\S+/.test(emailStr);
+                      if (!validateEmail(emailInput)) {
+                        setErrorMsg("Invalid email address.");
+                        return;
+                      }
+                      updatePrefs({ newsletterEmail: emailInput });
+                      showToast("Subscription email updated!", "success");
+                    }}
+                    style={{ minHeight: 40, padding: "0 16px", fontSize: 14 }}
+                  >
+                    Update
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    updatePrefs({ newsletterEmail: "" });
+                    setEmailInput("");
+                    showToast("Unsubscribed from newsletter.", "info");
+                  }}
+                  style={{
+                    minHeight: 40,
+                    padding: "0 16px",
+                    fontSize: 14,
+                    border: "1px solid var(--color-outline-variant)",
+                    color: "var(--color-danger)",
+                  }}
+                >
+                  Unsubscribe
+                </button>
+              </div>
+              {errorMsg && (
+                <div style={{ color: "var(--color-danger)", fontSize: 11, marginTop: 4 }}>
+                  {errorMsg}
+                </div>
+              )}
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!emailInput) {
+                  setErrorMsg("Email is required.");
+                  return;
+                }
+                const validateEmail = (emailStr: string) => /\S+@\S+\.\S+/.test(emailStr);
+                if (!validateEmail(emailInput)) {
+                  setErrorMsg("Please enter a valid email address.");
+                  return;
+                }
+                setErrorMsg("");
+                updatePrefs({ newsletterEmail: emailInput });
+                showToast("Subscribed to weekly updates!", "success");
+              }}
+              style={{ display: "flex", flexDirection: "column", gap: 8 }}
+            >
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="email"
+                  className="input"
+                  placeholder="Enter email to subscribe"
+                  value={emailInput}
+                  onChange={(e) => {
+                    setEmailInput(e.target.value);
+                    if (errorMsg) setErrorMsg("");
+                  }}
+                  style={{ flex: 1, minHeight: 40, padding: "8px 12px", fontSize: 14 }}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ minHeight: 40, padding: "0 16px", fontSize: 14 }}
+                >
+                  Subscribe
+                </button>
+              </div>
+              {errorMsg && (
+                <div style={{ color: "var(--color-danger)", fontSize: 11 }}>
+                  {errorMsg}
+                </div>
+              )}
+            </form>
+          )}
+        </div>
+
         {/* About */}
         <div className="card" style={{ textAlign: "center" }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>😈</div>
           <h3 style={{ margin: "0 0 4px" }}>Regret Buddy</h3>
           <p style={{ color: "var(--color-text-muted)", fontSize: 13, margin: "0 0 4px" }}>
-            v0.1.0
+            v2.0.0
           </p>
           <p style={{ color: "var(--color-text-subtle)", fontSize: 12, fontStyle: "italic", margin: 0 }}>
             Made with regret.

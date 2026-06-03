@@ -10,7 +10,10 @@ import type {
   SkipCategory,
   HelpingInGrowing,
   Priority,
+  RoutineTask,
+  DayOfWeek,
 } from "@/types/task";
+import { v4 as uuid } from "uuid";
 
 // ────────────────────────────────────────────
 // Day bucketing
@@ -32,6 +35,12 @@ export function calculateDayKey(
 /** Get today's dayKey based on current time and reset hour */
 export function getTodayKey(resetHour: number = 4): string {
   return calculateDayKey(new Date(), resetHour);
+}
+
+/** Get the DayOfWeek for today (or a given date) */
+export function getDayOfWeek(date: Date = new Date()): DayOfWeek {
+  const days: DayOfWeek[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  return days[date.getDay()];
 }
 
 // ────────────────────────────────────────────
@@ -77,6 +86,26 @@ export function getTaskTimeInfo(task: Task): {
     minutesOverdue: 0,
     isOverdue: false,
   };
+}
+
+// ────────────────────────────────────────────
+// Pre-notification check (Feature 3.3)
+// ────────────────────────────────────────────
+
+/** Check if a task should receive its "notify before" reminder right now */
+export function shouldPreNotify(task: Task): boolean {
+  if (task.notifyBeforeMin <= 0) return false;
+  if (task.preNotified) return false;
+  if (task.completed || task.skipped) return false;
+
+  const now = dayjs();
+  const [startH, startM] = task.startTime.split(":").map(Number);
+  const start = now.hour(startH).minute(startM).second(0);
+
+  // The pre-notification window: startTime - notifyBeforeMin to startTime
+  const notifyAt = start.subtract(task.notifyBeforeMin, "minute");
+
+  return now.isAfter(notifyAt) && now.isBefore(start);
 }
 
 // ────────────────────────────────────────────
@@ -233,4 +262,48 @@ export function groupTasksByStatus(
   }
 
   return groups;
+}
+
+// ────────────────────────────────────────────
+// Routine task → live task cloning (Feature 3.4)
+// ────────────────────────────────────────────
+
+/** Clone a RoutineTask template into a live Task for a given day */
+export function cloneRoutineTaskToTask(
+  routineTask: RoutineTask,
+  dayKey: string,
+  taskListId: string
+): Task {
+  return {
+    id: uuid(),
+    title: routineTask.title,
+    description: routineTask.description,
+    startTime: routineTask.startTime,
+    estimatedMinutes: routineTask.estimatedMinutes,
+    deadline: routineTask.startTime, // same as startTime
+    regretMessage: routineTask.regretMessage,
+    mandatory:
+      routineTask.priority === "critical" || routineTask.priority === "high",
+    priority: routineTask.priority,
+    completed: false,
+    skipped: false,
+    skipReason: "",
+    skipCategory: "other",
+    helps_in_growing: routineTask.helps_in_growing,
+    createdAt: new Date().toISOString(),
+    dayKey,
+    notifiedCount: 0,
+    notifyBeforeMin: routineTask.notifyBeforeMin,
+    preNotified: false,
+    taskListId,
+    sourceRoutineTaskId: routineTask.id,
+  };
+}
+
+/** Filter routine tasks to only those matching a specific day of the week */
+export function filterRoutineTasksForDay(
+  tasks: RoutineTask[],
+  day: DayOfWeek
+): RoutineTask[] {
+  return tasks.filter((t) => t.days.length === 0 || t.days.includes(day));
 }
