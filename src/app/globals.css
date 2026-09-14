@@ -96,6 +96,9 @@ body {
   color: var(--color-text);
   min-height: 100dvh;
   overflow-x: hidden;
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
 }
 
@@ -274,7 +277,7 @@ select.input {
   padding: var(--space-lg);
   padding-bottom: calc(var(--space-xl) + var(--safe-bottom));
   z-index: 51;
-  max-height: 90dvh;
+  max-height: calc(100dvh - var(--safe-top) - 16px);
   overflow-y: auto;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -508,7 +511,7 @@ select.input {
 
   body {
     padding-bottom: var(--space-xl);
-    padding-top: calc(64px + var(--space-md));
+    padding-top: calc(64px + var(--space-md) + var(--safe-top));
   }
 
   .fab {
