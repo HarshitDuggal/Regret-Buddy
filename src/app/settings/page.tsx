@@ -6,11 +6,13 @@ import { exportAllData, clearAllData } from "@/lib/db";
 import { requestPermission } from "@/lib/notifications";
 
 export default function SettingsPage() {
-  const { prefs, updatePrefs, initialize, showToast } = useTaskStore();
+  const { prefs, updatePrefs, initialize, showToast, registerFcmToken } = useTaskStore();
   const [confirmClear, setConfirmClear] = useState(false);
   const [exported, setExported] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isRegisteringFcm, setIsRegisteringFcm] = useState(false);
+  const [submittingNewsletter, setSubmittingNewsletter] = useState(false);
 
   useEffect(() => {
     if (prefs.newsletterEmail) {
@@ -124,11 +126,46 @@ export default function SettingsPage() {
                 max={30}
                 value={prefs.reminderIntervalMin}
                 onChange={(e) => updatePrefs({ reminderIntervalMin: Number(e.target.value) })}
-                style={{ width: "100%", accentColor: "var(--color-primary-container)" }}
+                style={{ width: "100%", accentColor: "var(--color-primary-container)", marginBottom: 12 }}
               />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--color-text-subtle)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--color-text-subtle)", marginBottom: 16 }}>
                 <span>1 min</span>
                 <span>30 min</span>
+              </div>
+
+              {/* Firebase Cloud Push Control */}
+              <div style={{ paddingTop: 12, borderTop: "1px solid var(--color-outline-variant)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text)" }}>🔥 Firebase Cloud Push</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
+                      {prefs.fcmToken ? "Remote push active for background nagging" : "Enable push when browser is closed"}
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-ghost"
+                    disabled={isRegisteringFcm}
+                    onClick={async () => {
+                      setIsRegisteringFcm(true);
+                      const token = await registerFcmToken();
+                      setIsRegisteringFcm(false);
+                      if (token) {
+                        showToast("Firebase Push Notifications active!", "success");
+                      } else {
+                        showToast("Failed to register FCM push token. Check browser permissions.", "error");
+                      }
+                    }}
+                    style={{
+                      fontSize: 12,
+                      minHeight: 36,
+                      padding: "4px 12px",
+                      border: "1px solid var(--color-outline-variant)",
+                      color: prefs.fcmToken ? "var(--color-success)" : "var(--color-primary)",
+                    }}
+                  >
+                    {isRegisteringFcm ? "Registering..." : prefs.fcmToken ? "✓ FCM Active" : "Enable Push"}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -240,18 +277,31 @@ export default function SettingsPage() {
                 {emailInput !== prefs.newsletterEmail && (
                   <button
                     className="btn btn-primary"
-                    onClick={() => {
+                    disabled={submittingNewsletter}
+                    onClick={async () => {
                       const validateEmail = (emailStr: string) => /\S+@\S+\.\S+/.test(emailStr);
                       if (!validateEmail(emailInput)) {
                         setErrorMsg("Invalid email address.");
                         return;
                       }
-                      updatePrefs({ newsletterEmail: emailInput });
-                      showToast("Subscription email updated!", "success");
+                      setSubmittingNewsletter(true);
+                      try {
+                        await fetch("/api/newsletter/subscribe", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ email: emailInput, fcmToken: prefs.fcmToken }),
+                        });
+                        await updatePrefs({ newsletterEmail: emailInput });
+                        showToast("Subscription email updated!", "success");
+                      } catch {
+                        showToast("Failed to sync newsletter subscription.", "error");
+                      } finally {
+                        setSubmittingNewsletter(false);
+                      }
                     }}
                     style={{ minHeight: 40, padding: "0 16px", fontSize: 14 }}
                   >
-                    Update
+                    {submittingNewsletter ? "..." : "Update"}
                   </button>
                 )}
                 <button
@@ -280,7 +330,7 @@ export default function SettingsPage() {
             </div>
           ) : (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 if (!emailInput) {
                   setErrorMsg("Email is required.");
@@ -292,8 +342,20 @@ export default function SettingsPage() {
                   return;
                 }
                 setErrorMsg("");
-                updatePrefs({ newsletterEmail: emailInput });
-                showToast("Subscribed to weekly updates!", "success");
+                setSubmittingNewsletter(true);
+                try {
+                  await fetch("/api/newsletter/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: emailInput, fcmToken: prefs.fcmToken }),
+                  });
+                  await updatePrefs({ newsletterEmail: emailInput });
+                  showToast("Subscribed to weekly updates!", "success");
+                } catch {
+                  showToast("Subscription saved locally.", "info");
+                } finally {
+                  setSubmittingNewsletter(false);
+                }
               }}
               style={{ display: "flex", flexDirection: "column", gap: 8 }}
             >
@@ -312,9 +374,10 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   className="btn btn-primary"
+                  disabled={submittingNewsletter}
                   style={{ minHeight: 40, padding: "0 16px", fontSize: 14 }}
                 >
-                  Subscribe
+                  {submittingNewsletter ? "..." : "Subscribe"}
                 </button>
               </div>
               {errorMsg && (

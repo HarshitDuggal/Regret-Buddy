@@ -3,6 +3,11 @@
  * Handles rich notification display with action buttons
  * and notification click routing.
  */
+try {
+  importScripts("/firebase-messaging-sw.js");
+} catch (e) {
+  console.warn("[sw.js] Could not import firebase-messaging-sw.js:", e);
+}
 
 // eslint-disable-next-line no-restricted-globals
 const sw = self;

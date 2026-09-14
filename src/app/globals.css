@@ -265,6 +265,13 @@ select.input {
   backdrop-filter: blur(4px);
   z-index: 50;
   animation: fadeIn 0.2s ease;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+.bottom-sheet-overlay.closing {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .bottom-sheet {
@@ -272,22 +279,48 @@ select.input {
   bottom: 0;
   left: 0;
   right: 0;
+  margin: 0 auto;
+  max-width: 640px;
   background: var(--color-surface-container);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  padding: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
   padding-bottom: calc(var(--space-xl) + var(--safe-bottom));
   z-index: 51;
   max-height: calc(100dvh - var(--safe-top) - 16px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.bottom-sheet-handle-zone {
+  width: 100%;
+  padding: 4px 0 16px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.bottom-sheet-handle-zone:active {
+  cursor: grabbing;
 }
 
 .bottom-sheet-handle {
-  width: 40px;
-  height: 4px;
+  width: 44px;
+  height: 5px;
   background: var(--color-outline);
   border-radius: var(--radius-full);
-  margin: 0 auto var(--space-lg);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.bottom-sheet-handle-zone:hover .bottom-sheet-handle,
+.bottom-sheet-handle-zone:active .bottom-sheet-handle {
+  background: var(--color-text-muted);
+  transform: scaleY(1.2);
 }
 
 /* ── Toast ── */

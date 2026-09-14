@@ -5,6 +5,7 @@ import { useTaskStore } from "@/store/taskStore";
 import { v4 as uuid } from "uuid";
 import type { HelpingInGrowing, Priority } from "@/types/task";
 import { getTodayKey } from "@/lib/businessLogic";
+import BottomSheet from "./BottomSheet";
 
 const STEPS = [
   "What are you supposed to do?",
@@ -117,204 +118,197 @@ export default function AddTaskModal({ close }: { close: () => void }) {
   };
 
   return (
-    <div className="bottom-sheet-overlay" onClick={close}>
-      <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="bottom-sheet-handle" />
+    <BottomSheet onClose={close}>
+      {/* Progress dots */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 24 }}>
+        {STEPS.map((_, i) => (
+          <div
+            key={i}
+            style={{
+              width: i === step ? 24 : 8,
+              height: 8,
+              borderRadius: "var(--radius-full)",
+              background: i <= step ? "var(--color-primary-container)" : "var(--color-surface-container-highest)",
+              transition: "all 0.3s ease",
+            }}
+          />
+        ))}
+      </div>
 
-        {/* Progress dots */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 24 }}>
-          {STEPS.map((_, i) => (
-            <div
-              key={i}
-              style={{
-                width: i === step ? 24 : 8,
-                height: 8,
-                borderRadius: "var(--radius-full)",
-                background: i <= step ? "var(--color-primary-container)" : "var(--color-surface-container-highest)",
-                transition: "all 0.3s ease",
-              }}
+      {/* Step title */}
+      <h2 style={{ margin: "0 0 20px", fontSize: 20 }}>{STEPS[step]}</h2>
+
+      {/* Step content */}
+      <div style={{ minHeight: 120, marginBottom: 16 }}>
+        {step === 0 && (
+          <>
+            <input
+              className="input"
+              placeholder="e.g. Practice guitar for 30 minutes"
+              value={title}
+              onChange={(e) => { setTitle(e.target.value); setError(""); }}
+              id="task-name-input"
             />
-          ))}
-        </div>
-
-        {/* Step title */}
-        <h2 style={{ margin: "0 0 20px", fontSize: 20 }}>{STEPS[step]}</h2>
-
-        {/* Step content */}
-        <div style={{ minHeight: 120, marginBottom: 16 }}>
-          {step === 0 && (
-            <>
-              <input
-                className="input"
-                placeholder="e.g. Practice guitar for 30 minutes"
-                value={title}
-                onChange={(e) => { setTitle(e.target.value); setError(""); }}
-                autoFocus
-                id="task-name-input"
-              />
-              <div style={{ marginTop: 16 }}>
-                <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
-                  Priority
-                </label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <button
-                      key={p.value}
-                      className={`chip ${priority === p.value ? "active" : ""}`}
-                      onClick={() => setPriority(p.value)}
-                    >
-                      <span>{p.emoji}</span>
-                      <span>{p.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Task List selector — only show if user has custom lists */}
-              {hasCustomLists && (
-                <div style={{ marginTop: 16 }}>
-                  <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
-                    Add to which list?
-                  </label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {taskLists.map((list) => (
-                      <button
-                        key={list.id}
-                        className={`chip ${selectedListId === list.id ? "active" : ""}`}
-                        onClick={() => setSelectedListId(list.id)}
-                      >
-                        <span>{list.emoji}</span>
-                        <span>{list.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {step === 1 && (
-            <>
-              <input
-                type="time"
-                className="input"
-                value={startTime}
-                onChange={(e) => { setStartTime(e.target.value); setError(""); }}
-                autoFocus
-                id="start-time-input"
-              />
-
-              {/* Notify Before — Feature 3.3 */}
-              <div style={{ marginTop: 16 }}>
-                <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
-                  🔔 Notify me before
-                </label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {NOTIFY_BEFORE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      className={`chip ${notifyBefore === opt.value ? "active" : ""}`}
-                      onClick={() => setNotifyBefore(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {step === 2 && (
-            <div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {DURATION_PRESETS.map((d) => (
+            <div style={{ marginTop: 16 }}>
+              <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
+                Priority
+              </label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {PRIORITY_OPTIONS.map((p) => (
                   <button
-                    key={d}
-                    className={`chip ${duration === d ? "active" : ""}`}
-                    onClick={() => setDuration(d)}
+                    key={p.value}
+                    className={`chip ${priority === p.value ? "active" : ""}`}
+                    onClick={() => setPriority(p.value)}
                   >
-                    {formatDuration(d)}
+                    <span>{p.emoji}</span>
+                    <span>{p.label}</span>
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Task List selector — only show if user has custom lists */}
+            {hasCustomLists && (
               <div style={{ marginTop: 16 }}>
-                <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 4 }}>
-                  Custom: {formatDuration(duration)}
+                <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
+                  Add to which list?
                 </label>
-                <input
-                  type="range"
-                  min={5}
-                  max={480}
-                  step={5}
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "var(--color-primary-container)" }}
-                />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {taskLists.map((list) => (
+                    <button
+                      key={list.id}
+                      className={`chip ${selectedListId === list.id ? "active" : ""}`}
+                      onClick={() => setSelectedListId(list.id)}
+                    >
+                      <span>{list.emoji}</span>
+                      <span>{list.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 1 && (
+          <>
+            <input
+              type="time"
+              className="input"
+              value={startTime}
+              onChange={(e) => { setStartTime(e.target.value); setError(""); }}
+              id="start-time-input"
+            />
+
+            {/* Notify Before — Feature 3.3 */}
+            <div style={{ marginTop: 16 }}>
+              <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}>
+                🔔 Notify me before
+              </label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {NOTIFY_BEFORE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`chip ${notifyBefore === opt.value ? "active" : ""}`}
+                    onClick={() => setNotifyBefore(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
+          </>
+        )}
 
-          {step === 3 && (
-            <textarea
-              className="input"
-              placeholder="Write a message to your future self... Why will you regret skipping this?"
-              value={regret}
-              onChange={(e) => setRegret(e.target.value)}
-              autoFocus
-              id="regret-message-input"
-            />
-          )}
-
-          {step === 4 && (
+        {step === 2 && (
+          <div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {GROWTH_OPTIONS.map((g) => (
+              {DURATION_PRESETS.map((d) => (
                 <button
-                  key={g.value}
-                  className={`chip ${growth === g.value ? "active" : ""}`}
-                  onClick={() => setGrowth(g.value)}
-                  style={{ flex: "1 1 calc(50% - 4px)", justifyContent: "center" }}
+                  key={d}
+                  className={`chip ${duration === d ? "active" : ""}`}
+                  onClick={() => setDuration(d)}
                 >
-                  <span style={{ fontSize: 20 }}>{g.emoji}</span>
-                  <span>{g.label}</span>
+                  {formatDuration(d)}
                 </button>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* Error */}
-        {error && (
-          <p style={{ color: "var(--color-danger)", fontSize: 13, margin: "0 0 12px", fontWeight: 500 }}>
-            {error}
-          </p>
+            <div style={{ marginTop: 16 }}>
+              <label style={{ fontSize: 13, color: "var(--color-text-muted)", display: "block", marginBottom: 4 }}>
+                Custom: {formatDuration(duration)}
+              </label>
+              <input
+                type="range"
+                min={5}
+                max={480}
+                step={5}
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                style={{ width: "100%", accentColor: "var(--color-primary-container)" }}
+              />
+            </div>
+          </div>
         )}
 
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 10 }}>
-          {step > 0 && (
-            <button className="btn btn-ghost" onClick={prev} style={{ flex: "0 0 auto" }}>
-              ← Back
-            </button>
-          )}
-          {!isLastStep ? (
-            <button className="btn btn-primary btn-full" onClick={next}>
-              Next →
-            </button>
-          ) : (
-            <button className="btn btn-success btn-full" onClick={handleSubmit}>
-              Create Task ✓
-            </button>
-          )}
-        </div>
+        {step === 3 && (
+          <textarea
+            className="input"
+            placeholder="Write a message to your future self... Why will you regret skipping this?"
+            value={regret}
+            onChange={(e) => setRegret(e.target.value)}
+            id="regret-message-input"
+          />
+        )}
 
-        <button
-          onClick={close}
-          className="btn btn-ghost btn-full"
-          style={{ marginTop: 8, fontSize: 13 }}
-        >
-          Cancel
-        </button>
+        {step === 4 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {GROWTH_OPTIONS.map((g) => (
+              <button
+                key={g.value}
+                className={`chip ${growth === g.value ? "active" : ""}`}
+                onClick={() => setGrowth(g.value)}
+                style={{ flex: "1 1 calc(50% - 4px)", justifyContent: "center" }}
+              >
+                <span style={{ fontSize: 20 }}>{g.emoji}</span>
+                <span>{g.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Error */}
+      {error && (
+        <p style={{ color: "var(--color-danger)", fontSize: 13, margin: "0 0 12px", fontWeight: 500 }}>
+          {error}
+        </p>
+      )}
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 10 }}>
+        {step > 0 && (
+          <button className="btn btn-ghost" onClick={prev} style={{ flex: "0 0 auto" }}>
+            ← Back
+          </button>
+        )}
+        {!isLastStep ? (
+          <button className="btn btn-primary btn-full" onClick={next}>
+            Next →
+          </button>
+        ) : (
+          <button className="btn btn-success btn-full" onClick={handleSubmit}>
+            Create Task ✓
+          </button>
+        )}
+      </div>
+
+      <button
+        onClick={close}
+        className="btn btn-ghost btn-full"
+        style={{ marginTop: 8, fontSize: 13 }}
+      >
+        Cancel
+      </button>
+    </BottomSheet>
   );
 }

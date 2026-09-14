@@ -219,6 +219,8 @@ const DEFAULT_PREFS: UserPrefs = {
   theme: "dark",
   hasSeenV2ReleaseNotes: false,
   newsletterEmail: "",
+  fcmToken: "",
+  fcmEnabled: false,
 };
 
 export async function getPrefs(): Promise<UserPrefs> {

@@ -224,7 +224,8 @@ export function computeCurrentStreak(summaries: DaySummary[]): number {
       streak++;
       expectedDate = summaryDate.subtract(1, "day");
     } else if (diff === 0) {
-      // Today isn't over, skip it
+      // Today isn't completed yet, move expectation to yesterday
+      expectedDate = summaryDate.subtract(1, "day");
       continue;
     } else {
       break;

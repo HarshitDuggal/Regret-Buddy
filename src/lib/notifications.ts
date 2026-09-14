@@ -29,8 +29,13 @@ export function getSwRegistration(): ServiceWorkerRegistration | null {
 
 export async function requestPermission(): Promise<boolean> {
   if (typeof window === "undefined" || !("Notification" in window)) return false;
-  const permission = await Notification.requestPermission();
-  return permission === "granted";
+  try {
+    const permission = await Notification.requestPermission();
+    return permission === "granted";
+  } catch (e) {
+    console.warn("[RegretBuddy] Notification permission request error:", e);
+    return false;
+  }
 }
 
 // ── Basic Notification (fallback) ──

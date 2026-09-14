@@ -45,6 +45,7 @@ import {
 } from "@/lib/businessLogic";
 import { pickRageMessage } from "@/lib/rageMessages";
 import { registerServiceWorker } from "@/lib/notifications";
+import { requestFcmToken } from "@/lib/firebase";
 
 type ToastType = "success" | "error" | "rage" | "info";
 
@@ -78,6 +79,7 @@ interface AppState {
   undoAction: (taskId: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   updatePrefs: (partial: Partial<UserPrefs>) => Promise<void>;
+  registerFcmToken: () => Promise<string | null>;
   showToast: (message: string, type: ToastType, undoId?: string) => void;
   clearToast: () => void;
 
@@ -380,6 +382,30 @@ export const useTaskStore = create<AppState>((set, get) => ({
       await savePrefs(merged);
     } catch (e) {
       console.error("[RegretBuddy] Could not save preferences to DB:", e);
+    }
+  },
+
+  // ── Firebase Cloud Messaging Token Registration ──
+  registerFcmToken: async () => {
+    try {
+      const token = await requestFcmToken();
+      if (token) {
+        await get().updatePrefs({ fcmToken: token, fcmEnabled: true });
+        // Sync token & newsletter subscription if email exists
+        const email = get().prefs.newsletterEmail;
+        if (email) {
+          fetch("/api/newsletter/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, fcmToken: token }),
+          }).catch(() => {});
+        }
+        return token;
+      }
+      return null;
+    } catch (err) {
+      console.error("[RegretBuddy] FCM Registration failed:", err);
+      return null;
     }
   },
 

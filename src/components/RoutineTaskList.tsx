@@ -453,7 +453,6 @@ export default function RoutineTaskList({
               setTitle(e.target.value);
               setError("");
             }}
-            autoFocus
             style={{ marginBottom: 12 }}
           />
 

@@ -76,6 +76,8 @@ export type UserPrefs = {
   theme: "dark" | "light"; // dark default
   hasSeenV2ReleaseNotes?: boolean;
   newsletterEmail?: string;
+  fcmToken?: string;
+  fcmEnabled?: boolean;
 };
 
 /** History entry for undo support */
